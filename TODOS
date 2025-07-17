@@ -1,0 +1,24 @@
+- Need persistent current directory
+- Automation of package setup and initiation
+- Add capability to execute curl commands with complex syntax directly from within the environment.
+- Update `requirements.txt` to reflect current project dependencies
+- Review and optimize Dockerfile for better image efficiency
+- Implement automated testing and update tests
+- Review and update project documentation, including README.md
+- Rebuild Docker containers regularly
+- Implement a document control system for checking documents in and out.
+- Conduct a security audit on code and dependencies
+- Profile application for performance optimizations
+- Develop features for line-specific editing in files
+- Add functionality for file search and replace with regular expressions
+- Implement rate limiting and monitoring on sensitive endpoints
+- Expand error handling for detailed API feedback
+- Set up alerting and notification for critical errors or system issues
+- Update documentation with examples for new features
+- Provide security guidelines and best practices for system use
+- Implement a document control system for checking documents in and out.
+- Automate deployment of documentation updates with code changes
+- Enhance security measures for API endpoints, especially file management
+- Set up a GPT to handle long term and short term memory (SPR)
+- add_import.py needs output when finished
+- Test the API script.

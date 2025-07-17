@@ -1,0 +1,60 @@
+networks:
+  default:
+    external: true
+    name: plannedintent-network
+services:
+  backend:
+    build:
+      context: webapi
+      dockerfile: Dockerfile
+    command: sh -c "uvicorn app.main:app --proxy-headers --host=0.0.0.0 --port=8000
+      --reload"
+    ports:
+    - 8000:8000
+    restart: always
+    volumes:
+    - ./webapi/:/code/:rw
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+    - ./data/certbot/www/:/var/www/certbot/:rw
+    - ./data/certbot/conf/:/etc/letsencrypt/:rw
+  code-server:
+    environment:
+    - DOCKER_USER=$USER
+    image: codercom/code-server:latest
+    ports:
+    - 8080:8080
+    restart: always
+    user: root
+    volumes:
+    - ./data/vscode/config/:/root/.config:rw
+    - .:/home/coder/project:rw
+  vps-manager:
+    build:
+      context: ./vps-manager
+      dockerfile: Dockerfile
+    command: uvicorn main:app --host 0.0.0.0 --port 8971 --reload
+    container_name: vps-manager
+    depends_on:
+    - webserver
+    environment:
+    - SSH_PRIVATE_KEY=/app/.ssh/vps_manager_key
+    ports:
+    - 8971:8971
+    volumes:
+    - ./vps-manager:/app
+  webserver:
+    image: nginx:latest
+    ports:
+    - 80:80
+    - 443:443
+    restart: always
+    volumes:
+    - ./src:/usr/share/nginx/html
+    - ./data/nginx/:/etc/nginx/:ro
+    - ./data/certbot/www:/var/www/certbot/:ro
+    - ./data/certbot/conf/:/etc/nginx/ssl/:ro
+services.vps-manager.command: uvicorn main:app --host 0.0.0.0 --port 8971 --reload
+  --workers 4
+version: '3'

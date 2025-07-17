@@ -1,0 +1,27 @@
+# Environment variables
+.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# SSH keys or sensitive dirs
+.ssh/
+
+# Backup, temp, and logs
+*.log
+backup/
+projectlog/
+*.txt
+
+# IDE/editor config
+.vscode/
+.idea/
+
+# Docker/socket artifacts
+*.pid
+*.sock
+
+# macOS/Windows system files
+.DS_Store
+Thumbs.db
