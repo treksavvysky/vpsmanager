@@ -16,27 +16,24 @@ session_manager = SSHSessionManager()
 # API key authentication
 api_key_header = APIKeyHeader(name="Authorization")
 
-# Server configurations
-servers = {
-    "server1": {
-        "hostname": "plannedintent.com",
-        "username": "root",
-        "auth_type": "key",
-        "key_filename": "/app/.ssh/vps_manager_key"
-    },
-   "server2": {
-    "hostname": "66.179.208.72",
-    "username": "root",
-    "auth_type": "password",
-    "password": os.getenv('CODEJOURNEY_PASSWORD')
-},
-   "server3": {
-    "hostname": "declaresuccess.com",
-    "username": "root",
-    "auth_type": "password",
-    "password": os.getenv('DECLARESUCCESS_PASSWORD')
-}
-}
+import json
+
+# Function to load server configurations from servers.json
+def load_server_configs():
+    with open("servers.json", "r") as f:
+        return json.load(f)
+
+# Function to save server configurations to servers.json
+def save_server_configs(configs):
+    with open("servers.json", "w") as f:
+        json.dump(configs, f, indent=4)
+
+# Load initial server configurations
+servers = load_server_configs()
+
+# Update passwords from environment variables
+servers["server2"]["password"] = os.getenv('CODEJOURNEY_PASSWORD')
+servers["server3"]["password"] = os.getenv('DECLARESUCCESS_PASSWORD')
 
 def get_api_key(api_key: str = Depends(api_key_header)):
     if api_key != "BBfoTtB5T9XIcEvTEwsByTyAVN8gTdzZ":
@@ -186,3 +183,32 @@ def list_open_sessions():
         return {"open_sessions": session_manager.get_open_sessions()}
     except Exception as error:
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(error)}")
+
+@app.get("/servers/list", dependencies=[Depends(get_api_key)])
+def list_servers():
+    """
+    Returns a list of available servers.
+    """
+    return {"servers": list(servers.keys())}
+
+class RenameServerRequest(BaseModel):
+    old_name: str
+    new_name: str
+
+@app.post("/servers/rename", dependencies=[Depends(get_api_key)])
+def rename_server(request: RenameServerRequest):
+    """
+    Renames a server configuration.
+    """
+    if request.old_name not in servers:
+        raise HTTPException(status_code=404, detail="Server not found")
+    if request.new_name in servers:
+        raise HTTPException(status_code=400, detail="New server name already exists")
+
+    servers[request.new_name] = servers.pop(request.old_name)
+    save_server_configs(servers)
+    return {"message": f"Server '{request.old_name}' renamed to '{request.new_name}' successfully."}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
