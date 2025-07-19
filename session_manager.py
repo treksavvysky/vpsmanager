@@ -14,13 +14,13 @@ servers = {
         "hostname": "66.179.208.72",
         "username": "root",
         "auth_type": "password",
-        "password": os.getenv('CODEJOURNEY_PASSWORD')
+        "password": "CODEJOURNEY_PASSWORD"
     },
     "server3": {
         "hostname": "declaresuccess.com",
         "username": "root",
         "auth_type": "password",
-        "password": os.getenv('DECLARESUCCESS_PASSWORD')
+        "password": "DECLARESUCCESS_PASSWORD"
     }
 }
 
@@ -35,9 +35,22 @@ def connect_to_ssh(server_name):
     
     try:
         if server["auth_type"] == "key":
-            ssh_client.connect(hostname=server["hostname"], username=server["username"], key_filename=server["key_filename"])
+            ssh_client.connect(
+                hostname=server["hostname"],
+                username=server["username"],
+                key_filename=server["key_filename"],
+            )
         elif server["auth_type"] == "password":
-            ssh_client.connect(hostname=server["hostname"], username=server["username"], password=server["password"])
+            env_password = os.getenv(server["password"])
+            if env_password is None:
+                raise paramiko.AuthenticationException(
+                    f"Environment variable '{server['password']}' not set"
+                )
+            ssh_client.connect(
+                hostname=server["hostname"],
+                username=server["username"],
+                password=env_password,
+            )
         else:
             raise ValueError("Invalid authentication type")
         return ssh_client

@@ -10,6 +10,8 @@ from session_manager import SSHSessionManager
 
 load_dotenv()  # Load environment variables from .env file
 
+API_KEY = os.getenv("API_KEY")
+
 app = FastAPI()
 session_manager = SSHSessionManager()
 
@@ -31,12 +33,8 @@ def save_server_configs(configs):
 # Load initial server configurations
 servers = load_server_configs()
 
-# Update passwords from environment variables
-servers["server2"]["password"] = os.getenv('CODEJOURNEY_PASSWORD')
-servers["server3"]["password"] = os.getenv('DECLARESUCCESS_PASSWORD')
-
 def get_api_key(api_key: str = Depends(api_key_header)):
-    if api_key != "BBfoTtB5T9XIcEvTEwsByTyAVN8gTdzZ":
+    if API_KEY is None or api_key != API_KEY:
         raise HTTPException(status_code=401, detail="That API key is invalid. Try again.")
 
 @app.get("/")
@@ -78,9 +76,20 @@ def connect_to_ssh(server_name):
     
     try:
         if server["auth_type"] == "key":
-            ssh_client.connect(hostname=server["hostname"], username=server["username"], key_filename=server["key_filename"])
+            ssh_client.connect(
+                hostname=server["hostname"],
+                username=server["username"],
+                key_filename=server["key_filename"],
+            )
         elif server["auth_type"] == "password":
-            ssh_client.connect(hostname=server["hostname"], username=server["username"], password=server["password"])
+            env_password = os.getenv(server["password"])
+            if env_password is None:
+                raise HTTPException(status_code=500, detail=f"Environment variable '{server['password']}' not set")
+            ssh_client.connect(
+                hostname=server["hostname"],
+                username=server["username"],
+                password=env_password,
+            )
         else:
             raise ValueError("Invalid authentication type")
         return ssh_client
