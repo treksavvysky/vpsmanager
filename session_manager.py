@@ -78,8 +78,5 @@ class SSHSessionManager:
         for server_name in list(self.sessions.keys()):
             self.close_session(server_name)
     
-    def get_open_sessions(self) -> Dict[str, str]:
-        """
-        Returns a dictionary of open sessions with server names as keys and session IDs as values.
-        """
-        return {server_name: self.sessions[server_name] for server_name in self.sessions}
+    def get_open_sessions(self) -> list:
+        return list(self.sessions.keys())
