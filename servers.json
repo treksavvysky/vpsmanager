@@ -1,0 +1,20 @@
+{
+    "server1": {
+        "hostname": "plannedintent.com",
+        "username": "root",
+        "auth_type": "key",
+        "key_filename": "/app/.ssh/vps_manager_key"
+    },
+   "server2": {
+    "hostname": "66.179.208.72",
+    "username": "root",
+    "auth_type": "password",
+    "password": "CODEJOURNEY_PASSWORD"
+},
+   "server3": {
+    "hostname": "declaresuccess.com",
+    "username": "root",
+    "auth_type": "password",
+    "password": "DECLARESUCCESS_PASSWORD"
+}
+}
