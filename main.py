@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import os
 import paramiko
 import subprocess
+import platform
 
 from session_manager import SSHSessionManager
 
@@ -32,6 +33,22 @@ def save_server_configs(configs):
 
 # Load initial server configurations
 servers = load_server_configs()
+
+
+def ping_vps(hostname: str) -> bool:
+    """Return True if the host responds to a single ping."""
+    # Platform-specific parameters for ping command
+    count_param = "-n" if platform.system().lower() == "windows" else "-c"
+    timeout_param = "-w" if platform.system().lower() == "windows" else "-W"
+    try:
+        subprocess.check_call(
+            ["ping", count_param, "1", timeout_param, "1", hostname],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return True
+    except subprocess.CalledProcessError:
+        return False
 
 def get_api_key(api_key: str = Depends(api_key_header)):
     if API_KEY is None or api_key != API_KEY:
@@ -217,6 +234,17 @@ def rename_server(request: RenameServerRequest):
     servers[request.new_name] = servers.pop(request.old_name)
     save_server_configs(servers)
     return {"message": f"Server '{request.old_name}' renamed to '{request.new_name}' successfully."}
+
+
+@app.get("/healthz")
+def healthz():
+    """Ping all registered servers and report their reachability."""
+    host_status = {}
+    for name, config in servers.items():
+        reachable = ping_vps(config["hostname"])
+        host_status[name] = {"reachable": reachable}
+    overall = "OK" if all(h["reachable"] for h in host_status.values()) else "NOT_OK"
+    return {"status": overall, "hosts": host_status}
 
 if __name__ == "__main__":
     import uvicorn
