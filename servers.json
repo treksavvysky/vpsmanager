@@ -9,12 +9,12 @@
     "hostname": "66.179.208.72",
     "username": "root",
     "auth_type": "password",
-    "password": "dummy_password"
+    "password": "CODEJOURNEY_PASSWORD"
 },
    "server3": {
     "hostname": "declaresuccess.com",
     "username": "root",
     "auth_type": "password",
-    "password": "dummy_password"
+    "password": "DECLARESUCCESS_PASSWORD"
 }
 }
