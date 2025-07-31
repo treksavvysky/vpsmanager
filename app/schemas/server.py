@@ -1,14 +1,15 @@
 from uuid import UUID
 from typing import Dict, Optional
-from pydantic import BaseModel, IPvAnyAddress, constr
+from pydantic import BaseModel, constr
 
-DnsLabel = constr(pattern=r"^[a-z0-9-]{1,63}$")
+# Allow more flexible hostname patterns for IPs and domains
+HostnamePattern = constr(pattern=r"^[a-zA-Z0-9.-]{1,255}$")
 
 
 class ServerBase(BaseModel):
-    hostname: DnsLabel
+    hostname: HostnamePattern
     provider: str
-    public_ip: IPvAnyAddress
+    public_ip: str  # Changed from IPvAnyAddress to str to allow domains
     role: str
     status: str = "online"
     tags: Dict[str, str] = {}
@@ -28,4 +29,4 @@ class ServerRead(ServerBase):
     id: UUID
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # Updated for Pydantic v2

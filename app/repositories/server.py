@@ -1,6 +1,8 @@
 from typing import List, Optional
 from uuid import UUID
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException
 
 from ..models.server import Server
 from ..schemas.server import ServerCreate, ServerUpdate
@@ -40,9 +42,16 @@ class ServerRepository:
             tags=obj.tags,
         )
         self.db.add(db_obj)
-        self.db.commit()
-        self.db.refresh(db_obj)
-        return db_obj
+        try:
+            self.db.commit()
+            self.db.refresh(db_obj)
+            return db_obj
+        except IntegrityError as e:
+            self.db.rollback()
+            if "UNIQUE constraint failed: servers.public_ip" in str(e):
+                raise HTTPException(status_code=400, detail="Server with this IP address already exists")
+            else:
+                raise HTTPException(status_code=400, detail="Database constraint violation")
 
     def update(self, db_obj: Server, obj_in: ServerUpdate) -> Server:
         if obj_in.role is not None:
