@@ -16,10 +16,39 @@ def test_healthz():
     try:
         response = requests.get(f"{BASE_URL}/healthz")
         print(f"Status Code: {response.status_code}")
-        print(f"Response: {json.dumps(response.json(), indent=2)}")
-        return response.status_code == 200
+        data = response.json()
+        print(f"Response: {json.dumps(data, indent=2)}")
+
+        if response.status_code != 200:
+            return False
+
+        # Basic structure validation
+        if "status" not in data or "hosts" not in data:
+            print("❌ Test failed: Missing 'status' or 'hosts' in response.")
+            return False
+
+        for host, status in data["hosts"].items():
+            if not isinstance(status, dict) or "ping_reachable" not in status or "ssh_successful" not in status:
+                print(f"❌ Test failed: Invalid status for host '{host}'. Missing 'ping_reachable' or 'ssh_successful'.")
+                return False
+
+            if status["ssh_successful"]:
+                if "hostname" not in status or "uptime" not in status:
+                    print(f"❌ Test failed: Missing 'hostname' or 'uptime' for successful SSH on host '{host}'.")
+                    return False
+            else: # if ssh was not successful
+                if "error" not in status:
+                     print(f"❌ Test failed: Missing 'error' for failed SSH on host '{host}'.")
+                     return False
+
+        print("✅ Test passed: /healthz response format is valid.")
+        return True
+
     except requests.exceptions.RequestException as e:
         print(f"Error testing /healthz: {e}")
+        return False
+    except json.JSONDecodeError:
+        print(f"❌ Test failed: Could not decode JSON response.")
         return False
 
 def test_with_auth(endpoint, method="GET", data=None):
