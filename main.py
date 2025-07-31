@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, Body
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 import os
 import paramiko
@@ -84,31 +85,53 @@ def execute_command(request: CommandRequest):
     except subprocess.CalledProcessError as e:
         raise HTTPException(status_code=500, detail=f"Command execution failed: {e.output}")
 
-def connect_to_ssh(server_name):
-    """Connects to an SSH server and returns the SSHClient object."""
-    if server_name not in servers:
-        raise HTTPException(status_code=400, detail="Invalid server name")
-    
-    server = servers[server_name]
+def connect_to_ssh(server_name: str, db: Session):
+    """Connect to an SSH server using configuration from the database.
+
+    Parameters
+    ----------
+    server_name: str
+        The hostname or identifier of the server.
+    db: Session
+        Active database session used to retrieve the server configuration.
+
+    Returns
+    -------
+    paramiko.SSHClient
+        Connected SSH client.
+    """
+
+    from app.models.server import Server
+
+    server = (
+        db.query(Server)
+        .filter((Server.hostname == server_name) | (Server.public_ip == server_name))
+        .first()
+    )
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found")
+
+    tags = server.tags or {}
+    username = tags.get("username", "root")
+    auth_type = tags.get("auth_type", "key")
+    key_filename = tags.get("key_filename")
+    password_env = tags.get("password_env")
+
     ssh_client = paramiko.SSHClient()
     ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    
+
     try:
-        if server["auth_type"] == "key":
-            ssh_client.connect(
-                hostname=server["hostname"],
-                username=server["username"],
-                key_filename=server["key_filename"],
-            )
-        elif server["auth_type"] == "password":
-            env_password = os.getenv(server["password"])
+        if auth_type == "key":
+            if not key_filename:
+                raise HTTPException(status_code=500, detail="Missing SSH key path")
+            ssh_client.connect(hostname=server.hostname, username=username, key_filename=key_filename)
+        elif auth_type == "password":
+            if not password_env:
+                raise HTTPException(status_code=500, detail="Missing password environment variable")
+            env_password = os.getenv(password_env)
             if env_password is None:
-                raise HTTPException(status_code=500, detail=f"Environment variable '{server['password']}' not set")
-            ssh_client.connect(
-                hostname=server["hostname"],
-                username=server["username"],
-                password=env_password,
-            )
+                raise HTTPException(status_code=500, detail=f"Environment variable '{password_env}' not set")
+            ssh_client.connect(hostname=server.hostname, username=username, password=env_password)
         else:
             raise ValueError("Invalid authentication type")
         return ssh_client
@@ -117,8 +140,21 @@ def connect_to_ssh(server_name):
     except paramiko.SSHException as error:
         raise HTTPException(status_code=500, detail=f"SSH connection error: {str(error)}")
 
-def execute_remote_command(ssh_client, command):
-    """Executes a command on the remote server and returns the output."""
+def execute_remote_command(ssh_client: paramiko.SSHClient, command: str) -> list:
+    """Execute a command on the remote server and return its output lines.
+
+    Parameters
+    ----------
+    ssh_client: paramiko.SSHClient
+        An active SSH connection.
+    command: str
+        The command to run remotely.
+
+    Returns
+    -------
+    list
+        Lines of output produced by the command.
+    """
     try:
         stdin, stdout, stderr = ssh_client.exec_command(command)
         output = stdout.readlines()
@@ -130,16 +166,26 @@ class ServerCommandRequest(BaseModel):
     server_name: str
     command: str
 
-@app.post("/ssh_execute/server_command", dependencies=[Depends(get_api_key)])
-def execute_server_command(request: ServerCommandRequest):
+class CommandOutput(BaseModel):
+    output: list[str]
+
+@app.post(
+    "/ssh_execute/server_command",
+    response_model=CommandOutput,
+    dependencies=[Depends(get_api_key)],
+)
+def execute_server_command(
+    request: ServerCommandRequest, db: Session = Depends(get_db)
+):
+    """Execute a shell command on the specified server via SSH."""
     try:
-        with connect_to_ssh(request.server_name) as ssh_client:
+        with connect_to_ssh(request.server_name, db) as ssh_client:
             output = execute_remote_command(ssh_client, request.command)
-        return {"output": output}
+        return CommandOutput(output=output)
     except HTTPException as http_error:
         raise http_error
     except Exception as error:
-        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(error)}")       
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(error)}")
 
 
 # added Jan 28 2025
@@ -239,7 +285,7 @@ def rename_server(request: RenameServerRequest):
 
 
 @app.get("/healthz")
-def healthz():
+def healthz(db: Session = Depends(get_db)):
     """Ping all registered servers and report their reachability, hostname, and uptime."""
     host_status = {}
     for name, config in servers.items():
@@ -249,7 +295,7 @@ def healthz():
 
         # Always attempt to connect via SSH to get hostname and uptime
         try:
-            with connect_to_ssh(name) as ssh_client:
+            with connect_to_ssh(name, db) as ssh_client:
                 hostname_output = execute_remote_command(ssh_client, "hostname")
                 uptime_output = execute_remote_command(ssh_client, "uptime -p")
 
