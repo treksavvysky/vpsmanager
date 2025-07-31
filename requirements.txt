@@ -4,3 +4,11 @@ paramiko
 python-dotenv
 PyYAML
 requests
+sqlalchemy
+alembic
+httpx
+pytest
+pytest-asyncio
+pydantic>=2.8
+SQLAlchemy>=2.0,<3.0
+psycopg2-binary>=2.9        # only if you deploy on Postgres

@@ -8,6 +8,8 @@ import subprocess
 import platform
 
 from session_manager import SSHSessionManager
+from app.routers.servers import router as servers_router
+from app.database import get_db
 
 load_dotenv()  # Load environment variables from .env file
 
@@ -277,6 +279,9 @@ def healthz():
     # Overall status is OK if all hosts were successfully contacted via SSH
     overall = "OK" if all(h.get("ssh_successful") for h in host_status.values()) else "NOT_OK"
     return {"status": overall, "hosts": host_status}
+
+# include server inventory router with API key auth
+app.include_router(servers_router, dependencies=[Depends(get_api_key)])
 
 if __name__ == "__main__":
     import uvicorn
