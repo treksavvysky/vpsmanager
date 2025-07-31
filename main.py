@@ -238,12 +238,29 @@ def rename_server(request: RenameServerRequest):
 
 @app.get("/healthz")
 def healthz():
-    """Ping all registered servers and report their reachability."""
+    """Ping all registered servers and report their reachability, hostname, and uptime."""
     host_status = {}
     for name, config in servers.items():
+        # First, ping the server to check for reachability
         reachable = ping_vps(config["hostname"])
-        host_status[name] = {"reachable": reachable}
-    overall = "OK" if all(h["reachable"] for h in host_status.values()) else "NOT_OK"
+        host_status[name] = {"ping_reachable": reachable}
+
+        # Always attempt to connect via SSH to get hostname and uptime
+        try:
+            with connect_to_ssh(name) as ssh_client:
+                hostname_output = execute_remote_command(ssh_client, "hostname")
+                uptime_output = execute_remote_command(ssh_client, "uptime -p")
+
+                host_status[name]["ssh_successful"] = True
+                host_status[name]["hostname"] = hostname_output[0].strip() if hostname_output else "N/A"
+                host_status[name]["uptime"] = uptime_output[0].strip() if uptime_output else "N/A"
+
+        except (paramiko.SSHException, HTTPException) as e:
+            host_status[name]["ssh_successful"] = False
+            host_status[name]["error"] = str(e)
+
+    # Overall status is OK if all hosts were successfully contacted via SSH
+    overall = "OK" if all(h.get("ssh_successful") for h in host_status.values()) else "NOT_OK"
     return {"status": overall, "hosts": host_status}
 
 if __name__ == "__main__":
