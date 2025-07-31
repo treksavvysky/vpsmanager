@@ -255,9 +255,24 @@ def healthz():
                 host_status[name]["hostname"] = hostname_output[0].strip() if hostname_output else "N/A"
                 host_status[name]["uptime"] = uptime_output[0].strip() if uptime_output else "N/A"
 
-        except (paramiko.SSHException, HTTPException) as e:
+        except FileNotFoundError as e:
             host_status[name]["ssh_successful"] = False
-            host_status[name]["error"] = str(e)
+            host_status[name]["error"] = f"SSH key file not found: {str(e)}"
+        except PermissionError as e:
+            host_status[name]["ssh_successful"] = False
+            host_status[name]["error"] = f"SSH key permission denied: {str(e)}"
+        except paramiko.AuthenticationException as e:
+            host_status[name]["ssh_successful"] = False
+            host_status[name]["error"] = f"SSH authentication failed: {str(e)}"
+        except paramiko.SSHException as e:
+            host_status[name]["ssh_successful"] = False
+            host_status[name]["error"] = f"SSH connection error: {str(e)}"
+        except HTTPException as e:
+            host_status[name]["ssh_successful"] = False
+            host_status[name]["error"] = f"HTTP error: {e.detail}"
+        except Exception as e:
+            host_status[name]["ssh_successful"] = False
+            host_status[name]["error"] = f"Unexpected error: {str(e)}"
 
     # Overall status is OK if all hosts were successfully contacted via SSH
     overall = "OK" if all(h.get("ssh_successful") for h in host_status.values()) else "NOT_OK"

@@ -5,6 +5,19 @@
 __pycache__/
 *.py[cod]
 
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+vpsmanager_venv_2025/
+ENV/
+env.bak/
+venv.bak/
+
+# Virtual environment activation scripts
+activate_venv.sh
+
 # SSH keys or sensitive dirs
 .ssh/
 
