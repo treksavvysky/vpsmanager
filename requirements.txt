@@ -4,3 +4,8 @@ paramiko
 python-dotenv
 PyYAML
 requests
+sqlalchemy
+alembic
+httpx
+pytest
+pytest-asyncio

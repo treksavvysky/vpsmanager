@@ -39,3 +39,6 @@ projectlog/
 # macOS/Windows system files
 .DS_Store
 Thumbs.db
+
+# SQLite DB
+*.db
