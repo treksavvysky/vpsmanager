@@ -10,7 +10,11 @@ import platform
 
 from session_manager import SSHSessionManager
 from app.routers.servers import router as servers_router
+from app.routers.vault import router as vault_router
 from app.database import get_db
+from app.repositories.credential import CredentialRepository
+from app.models.credential import CredentialType
+from app.utils.vault import decrypt_secret
 
 load_dotenv()  # Load environment variables from .env file
 
@@ -114,23 +118,30 @@ def connect_to_ssh(server_name: str, db: Session):
     tags = server.tags or {}
     username = tags.get("username", "root")
     auth_type = tags.get("auth_type", "key")
-    key_filename = tags.get("key_filename")
-    password_env = tags.get("password_env")
+    credential_name = tags.get("credential_name")
 
     ssh_client = paramiko.SSHClient()
     ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
     try:
+        repo = CredentialRepository(db)
         if auth_type == "key":
-            if not key_filename:
-                raise HTTPException(status_code=500, detail="Missing SSH key path")
-            ssh_client.connect(hostname=server.hostname, username=username, key_filename=key_filename)
+            if not credential_name:
+                raise HTTPException(status_code=500, detail="Missing credential name")
+            cred = repo.get_by_name(credential_name)
+            if not cred or cred.type != CredentialType.ssh_key:
+                raise HTTPException(status_code=500, detail="Invalid credential for SSH key")
+            private_key = decrypt_secret(cred.secret)
+            import io
+            pkey = paramiko.RSAKey.from_private_key(io.StringIO(private_key))
+            ssh_client.connect(hostname=server.hostname, username=username, pkey=pkey)
         elif auth_type == "password":
-            if not password_env:
-                raise HTTPException(status_code=500, detail="Missing password environment variable")
-            env_password = os.getenv(password_env)
-            if env_password is None:
-                raise HTTPException(status_code=500, detail=f"Environment variable '{password_env}' not set")
+            if not credential_name:
+                raise HTTPException(status_code=500, detail="Missing credential name")
+            cred = repo.get_by_name(credential_name)
+            if not cred or cred.type != CredentialType.password:
+                raise HTTPException(status_code=500, detail="Invalid credential for password")
+            env_password = decrypt_secret(cred.secret)
             ssh_client.connect(hostname=server.hostname, username=username, password=env_password)
         else:
             raise ValueError("Invalid authentication type")
@@ -328,6 +339,7 @@ def healthz(db: Session = Depends(get_db)):
 
 # include server inventory router with API key auth
 app.include_router(servers_router, dependencies=[Depends(get_api_key)])
+app.include_router(vault_router, dependencies=[Depends(get_api_key)])
 
 if __name__ == "__main__":
     import uvicorn

@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from uuid import uuid4
 
 os.environ["API_KEY"] = "testkey"
+os.environ.setdefault("VAULT_KEY", "VMlKlTtrEoaAH66KDjkULqAFCV8E4fBduCbbx8g57KA=")
 
 from app.database import Base, get_db
 from app.models.server import Server, Provider, Role, Status
