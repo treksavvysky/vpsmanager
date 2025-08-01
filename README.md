@@ -12,3 +12,7 @@ A simple VPS management tool using FastAPI.
 - Committed cleaned code and added GitHub remote
 - Renamed `master` branch to `main` and attempted push to GitHub
 
+
+## Vault Setup
+Set `VAULT_KEY` environment variable to a Fernet key before running the application.
+
